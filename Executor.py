@@ -12,8 +12,8 @@ from glob import glob
 
 class Executor:
     def __init__(self,fileList,threshold=0.6,width=0.1,sample_rate=48000,time_sec=60):
-
         self.results={'':[]}
+        self.temp_res={}
         self.threshold=threshold
         self.width=width
         self.II = 0
@@ -21,6 +21,11 @@ class Executor:
         self.sig=0
         self.generator = DataGenerator(fileList, time_sec=60)
         self.down_rate = self.cal_down_rate()
+
+        self.residual = False
+        self.residualPoint = 0
+        self.SeqLgth  = 0
+
 
     def cal_down_rate(self):
         if int(self.generator.fs)%int(self.sample_rate)==0:
@@ -39,6 +44,7 @@ class Executor:
             ymin = -0.2546
             s0 = (ymax - ymin) * (s0 - s0min) / (s0max - s0min) + ymin
             (SeqLgth, NbSeq, s1Mtx, s1Res, s0Mtx, s0Res, fs) = preprocessing(sr, s0)
+            self.SeqLgth =SeqLgth
             start = time()
             window = signal.windows.hann(128)
             curMinuteResult = []
@@ -54,10 +60,10 @@ class Executor:
                 res = self.getDuration(confidence, self.threshold,self.width*II.shape[1]/2)
                 res += idxSeq * II.shape[1]
                 res = res * 2 / II.shape[1] + (self.generator.prevMinutes-1)*60
-                #res = res + (self.generator.prevMinutes)*II.shape[1]*30
                 if len(res) != 0:
                     curMinuteResult.extend(res.tolist())
                 print(idxSeq)
+
                 self.sig=idxSeq
             self.saveResult(curMinuteResult)
             print(' 1 minutes cost: {} '.format(time() - start))
@@ -80,6 +86,7 @@ class Executor:
         with open('results.json','w') as f:
             json.dump(self.results,f)
             print('save done!!!')
+
 
     def DophineSniffer(self, inputs, c1=200, c2=1000, c3=501):
         start = time()
@@ -125,22 +132,24 @@ class Executor:
                 tail = idx
                 tail_ext = True
                 if np.mean(ax[head:tail]) > 0 and (tail-head)>width:
-                    res.append([head, tail])
+                    res.append([head-int((0.15/self.SeqLgth)*len(ax)), tail+int((0.15/self.SeqLgth)*len(ax))])
             elif head_ext == True and tail_ext == True:
                 # 标志清空
                 head = np.nan
                 tail = np.nan
                 head_ext = False
                 tail_ext = False
+
+        # Lee337 本帧处理完了，如果看到上一帧有保留，就把当前帧的第一个头提前
+        if self.residual == True and len(res)!=0:
+            if res[0][0]<0.05*self.sample_rate:
+                res[0][0] = self.residualPoint-len(ax) #当前时间减2s
+            self.residual = False
+            self.residualPoint= 0
+        if head_ext==True and tail_ext == False:#如果当前帧存在有头无尾的情况，说明当前帧也有残余
+            self.residual=True
+            self.residualPoint = head-int((0.15/self.SeqLgth)*len(ax))
         return np.array(res)
-
-    # def concat(self,dat):
-    #     if len(cat)<2:
-    #         return dat
-    #     for idx in range(len(dat)-1):
-    #         if dat[idx+1][0]-dat[idx][1]<0.1:
-    #
-
 
 
 
