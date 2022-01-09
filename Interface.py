@@ -59,11 +59,9 @@ class Interface(QMainWindow):
         self.ui.cbSave.stateChanged.connect(self.do_save_status)
         self.ui.cbShow.stateChanged.connect(self.do_show_status)
 
-
     def figInit(self):
         self.fig=static_fig(width=6, height=3, dpi=80)
         self.ui.hLayout.addWidget(self.fig)
-
 
     def do_DataSaver(self):
         self.saver=Transform('results.json',downRate=self.ctl.executor.down_rate)
