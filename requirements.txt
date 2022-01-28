@@ -1,5 +1,5 @@
 matplotlib==3.4.2
-numpy==1.19.5
+numpy==1.21.0
 opencv_python==4.5.4.58
 pandas==1.2.5
 qt_material==2.8.8
